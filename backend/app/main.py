@@ -1,35 +1,70 @@
-"""FastAPI application - shell for Component 1 (Metadata & State Store)."""
+"""FastAPI application — Data Pipeline Orchestrator."""
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.db.session import init_db
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: ensure DB exists (migrations preferred in production)."""
-    # init_db()  # uncomment to create tables without Alembic
+    """Startup: init DB, start scheduler. Shutdown: stop scheduler."""
+    settings = get_settings()
+    init_db()
+
+    from app.services.scheduler_service import SchedulerService
+    scheduler = SchedulerService(interval_seconds=settings.scheduler_interval_seconds)
+    scheduler.start()
+    app.state.scheduler = scheduler
+
     yield
-    # shutdown
+
+    scheduler.stop()
 
 
-app = FastAPI(
-    title=get_settings().app_name,
-    version="0.1.0",
-    lifespan=lifespan,
-)
+def create_app() -> FastAPI:
+    settings = get_settings()
+
+    app = FastAPI(
+        title=settings.app_name,
+        version="0.1.0",
+        description="DAG-based data pipeline orchestrator with job library, validation, and scheduling.",
+        lifespan=lifespan,
+    )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    from app.api.jobs import router as jobs_router
+    from app.api.dags import router as dags_router
+    from app.api.runs import router as runs_router
+    from app.api.settings import router as settings_router
+
+    app.include_router(jobs_router)
+    app.include_router(dags_router)
+    app.include_router(runs_router)
+    app.include_router(settings_router)
+
+    @app.get("/health", tags=["system"])
+    def health():
+        return {"status": "ok"}
+
+    @app.get("/ready", tags=["system"])
+    def ready():
+        return {"status": "ready"}
+
+    return app
 
 
-@app.get("/health")
-def health():
-    """Health check for deploy and scripts."""
-    return {"status": "ok"}
-
-
-@app.get("/ready")
-def ready():
-    """Readiness: DB connectivity could be checked here."""
-    return {"status": "ready"}
+app = create_app()
