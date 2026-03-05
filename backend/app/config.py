@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     # Retention (global default; overridable per DAG in DB)
     retention_days_default: int = 90
 
+    # Auth: if set, all API endpoints require X-Api-Key header
+    api_key: Optional[str] = None
+
+    # Scheduler poll interval in seconds
+    scheduler_interval_seconds: int = 60
+
 
 @lru_cache
 def get_settings() -> Settings:
