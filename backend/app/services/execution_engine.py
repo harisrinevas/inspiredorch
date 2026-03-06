@@ -113,6 +113,8 @@ def _execute_job(run_id: str, job: Job, db: Session) -> bool:
     if not state:
         return False
 
+    log_parts: list[str] = []
+
     # ── Input validation ──
     if job.input_validation_enabled and job.validator_config:
         state.status = JOB_RUN_STATUS_INPUT_VALIDATION
@@ -125,9 +127,12 @@ def _execute_job(run_id: str, job: Job, db: Session) -> bool:
         except Exception as exc:
             ok, output = False, str(exc)
 
+        log_parts.append(f"[input_validation]\n{output}")
+
         if not ok:
             state.status = JOB_RUN_STATUS_FAILED
             state.error_message = f"Input validation failed: {output[:2000]}"
+            state.logs = "\n\n".join(log_parts)
             state.finished_at = _now()
             db.commit()
             return False
@@ -144,9 +149,12 @@ def _execute_job(run_id: str, job: Job, db: Session) -> bool:
     except Exception as exc:
         ok, output = False, str(exc)
 
+    log_parts.append(f"[handler]\n{output}")
+
     if not ok:
         state.status = JOB_RUN_STATUS_FAILED
         state.error_message = output[:2000]
+        state.logs = "\n\n".join(log_parts)
         state.finished_at = _now()
         db.commit()
         return False
@@ -162,13 +170,17 @@ def _execute_job(run_id: str, job: Job, db: Session) -> bool:
         except Exception as exc:
             ok, output = False, str(exc)
 
+        log_parts.append(f"[output_validation]\n{output}")
+
         if not ok:
             state.status = JOB_RUN_STATUS_FAILED
             state.error_message = f"Output validation failed: {output[:2000]}"
+            state.logs = "\n\n".join(log_parts)
             state.finished_at = _now()
             db.commit()
             return False
 
+    state.logs = "\n\n".join(log_parts)
     state.status = JOB_RUN_STATUS_SUCCESS
     state.finished_at = _now()
     db.commit()
