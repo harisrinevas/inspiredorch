@@ -6,12 +6,11 @@ import StatusBadge from '../components/StatusBadge'
 export default function Dashboard() {
   const [runs, setRuns] = useState([])
   const [dags, setDags] = useState([])
-  const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([api.listRuns(), api.listDags(), api.listJobs()])
-      .then(([r, d, j]) => { setRuns(r); setDags(d); setJobs(j) })
+    Promise.all([api.listRuns(), api.listDags()])
+      .then(([r, d]) => { setRuns(r); setDags(d) })
       .finally(() => setLoading(false))
   }, [])
 

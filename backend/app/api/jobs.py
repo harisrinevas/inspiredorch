@@ -17,7 +17,12 @@ def list_jobs(db: Session = Depends(get_db)):
     return [job_to_dict(j) for j in svc.list_all()]
 
 
-@router.post("", response_model=JobResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_api_key)])
+@router.post(
+    "",
+    response_model=JobResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_api_key)],
+)
 def create_job(data: JobCreate, db: Session = Depends(get_db)):
     svc = JobService(db)
     job = svc.create(data)
@@ -43,7 +48,11 @@ def update_job(job_id: str, data: JobUpdate, db: Session = Depends(get_db)):
     return job_to_dict(job)
 
 
-@router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_api_key)])
+@router.delete(
+    "/{job_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_api_key)],
+)
 def delete_job(job_id: str, db: Session = Depends(get_db)):
     svc = JobService(db)
     job = svc.get(job_id)

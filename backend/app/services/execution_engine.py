@@ -13,18 +13,16 @@ Handler types (handler_config.type):
 
 import json
 import logging
-import subprocess
+import subprocess  # nosec B404 — subprocess use is intentional (script handler)
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
 from app.models.job import Job
 from app.models.run import (
-    JOB_RUN_STATUS_CANCELLED,
     JOB_RUN_STATUS_FAILED,
     JOB_RUN_STATUS_INPUT_VALIDATION,
     JOB_RUN_STATUS_OUTPUT_VALIDATION,
@@ -57,7 +55,7 @@ def _get_job_lock(job_id: str) -> threading.Lock:
 
 
 def _now() -> datetime:
-    return datetime.now(tz=timezone.utc)
+    return datetime.now(tz=UTC)
 
 
 def _run_command(command: str, timeout: int = 300) -> tuple[bool, str]:
@@ -65,7 +63,7 @@ def _run_command(command: str, timeout: int = 300) -> tuple[bool, str]:
     try:
         result = subprocess.run(
             command,
-            shell=True,
+            shell=True,  # nosec B602 — command strings are user-configured job definitions, not interpolated user input
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -76,6 +74,73 @@ def _run_command(command: str, timeout: int = 300) -> tuple[bool, str]:
         return False, f"Command timed out after {timeout}s"
     except Exception as exc:
         return False, str(exc)
+
+
+def _run_container(
+    image: str,
+    command: str,
+    timeout: int = 300,
+    environment: dict | None = None,
+    volumes: list | None = None,
+) -> tuple[bool, str]:
+    """Run a command inside a Docker container. Returns (success, logs)."""
+    try:
+        import docker  # deferred: backend starts fine without SDK
+        from docker.errors import ImageNotFound
+    except ImportError:
+        return (
+            False,
+            "docker SDK not installed; add 'docker>=7.0.0' to requirements.txt",
+        )
+
+    from app.config import get_settings
+
+    settings = get_settings()
+
+    kwargs = {}
+    if settings.docker_host:
+        kwargs["base_url"] = settings.docker_host
+
+    try:
+        client = docker.DockerClient(**kwargs) if kwargs else docker.from_env()
+    except Exception as exc:
+        return False, f"Cannot connect to Docker daemon: {exc}"
+
+    # Build volumes dict from "host:container[:mode]" strings
+    volume_binds: dict = {}
+    for vol in volumes or []:
+        parts = str(vol).split(":")
+        if len(parts) >= 2:
+            host_path, container_path = parts[0], parts[1]
+            mode = parts[2] if len(parts) >= 3 else "rw"
+            volume_binds[host_path] = {"bind": container_path, "mode": mode}
+
+    container = None
+    try:
+        try:
+            client.images.get(image)
+        except ImageNotFound:
+            client.images.pull(image)
+
+        container = client.containers.run(
+            image,
+            command=command,
+            environment=environment or {},
+            volumes=volume_binds or None,
+            detach=True,
+        )
+        result = container.wait(timeout=timeout)
+        logs = container.logs(stdout=True, stderr=True).decode("utf-8", errors="replace")
+        exit_code = result.get("StatusCode", 1)
+        return exit_code == 0, logs
+    except Exception as exc:
+        return False, str(exc)
+    finally:
+        if container is not None:
+            try:
+                container.remove(force=True)
+            except Exception:  # nosec B110 — best-effort container cleanup; failure is non-fatal
+                pass
 
 
 def _execute_handler(handler_config: dict) -> tuple[bool, str]:
@@ -91,6 +156,18 @@ def _execute_handler(handler_config: dict) -> tuple[bool, str]:
             return False, "handler_config.command is required for type=script"
         timeout = int(handler_config.get("timeout", 300))
         return _run_command(command, timeout)
+
+    if handler_type == "container":
+        image = handler_config.get("image", "")
+        command = handler_config.get("command", "")
+        if not image:
+            return False, "handler_config.image is required for type=container"
+        if not command:
+            return False, "handler_config.command is required for type=container"
+        timeout = int(handler_config.get("timeout", 300))
+        env = handler_config.get("environment", {})
+        vols = handler_config.get("volumes", [])
+        return _run_container(image, command, timeout, env, vols)
 
     return False, f"Unknown handler type: {handler_type}"
 
@@ -122,7 +199,11 @@ def _execute_job(run_id: str, job: Job, db: Session) -> bool:
         db.commit()
 
         try:
-            vcfg = json.loads(job.validator_config) if isinstance(job.validator_config, str) else job.validator_config
+            vcfg = (
+                json.loads(job.validator_config)
+                if isinstance(job.validator_config, str)
+                else job.validator_config
+            )
             ok, output = _execute_handler(vcfg)
         except Exception as exc:
             ok, output = False, str(exc)
@@ -144,7 +225,11 @@ def _execute_job(run_id: str, job: Job, db: Session) -> bool:
     db.commit()
 
     try:
-        hcfg = json.loads(job.handler_config) if isinstance(job.handler_config, str) else job.handler_config
+        hcfg = (
+            json.loads(job.handler_config)
+            if isinstance(job.handler_config, str)
+            else job.handler_config
+        )
         ok, output = _execute_handler(hcfg)
     except Exception as exc:
         ok, output = False, str(exc)
@@ -165,7 +250,11 @@ def _execute_job(run_id: str, job: Job, db: Session) -> bool:
         db.commit()
 
         try:
-            vcfg = json.loads(job.validator_config) if isinstance(job.validator_config, str) else job.validator_config
+            vcfg = (
+                json.loads(job.validator_config)
+                if isinstance(job.validator_config, str)
+                else job.validator_config
+            )
             ok, output = _execute_handler(vcfg)
         except Exception as exc:
             ok, output = False, str(exc)
@@ -291,7 +380,7 @@ def _run_dag(run_id: str) -> None:
             if run:
                 run.status = RUN_STATUS_FAILED
                 db.commit()
-        except Exception:
+        except Exception:  # nosec B110 — best-effort DB status update; already in fatal-error handler
             pass
     finally:
         db.close()

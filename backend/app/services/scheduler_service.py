@@ -8,9 +8,7 @@ Every `interval_seconds`, the scheduler:
 
 import logging
 import threading
-import time
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from croniter import croniter
 
@@ -27,7 +25,7 @@ class SchedulerService:
     def __init__(self, interval_seconds: int = 60):
         self.interval = interval_seconds
         self._stop_event = threading.Event()
-        self._thread: Optional[threading.Thread] = None
+        self._thread: threading.Thread | None = None
 
     def start(self) -> None:
         self._stop_event.clear()
@@ -58,8 +56,12 @@ class SchedulerService:
             run_repo = RunRepository(db)
             engine = ExecutionEngine()
 
-            now = datetime.now(tz=timezone.utc)
-            dags = db.query(__import__("app.models.dag", fromlist=["DAG"]).DAG).filter_by(paused=False).all()
+            now = datetime.now(tz=UTC)
+            dags = (
+                db.query(__import__("app.models.dag", fromlist=["DAG"]).DAG)
+                .filter_by(paused=False)
+                .all()
+            )
 
             for dag in dags:
                 if not dag.schedule_cron:
@@ -72,8 +74,8 @@ class SchedulerService:
             db.close()
 
     def _maybe_trigger(self, dag, now, dag_repo, run_repo, engine) -> None:
-        from app.services.execution_engine import ExecutionEngine
         from app.db.session import SessionLocal
+        from app.services.execution_engine import ExecutionEngine
 
         try:
             cron = croniter(dag.schedule_cron, now)
@@ -84,14 +86,14 @@ class SchedulerService:
 
         # Make prev_fire timezone-aware
         if prev_fire.tzinfo is None:
-            prev_fire = prev_fire.replace(tzinfo=timezone.utc)
+            prev_fire = prev_fire.replace(tzinfo=UTC)
 
         # Check if we already have a run triggered at or after prev_fire
         recent_runs = run_repo.list_by_dag(dag.id, limit=1)
         if recent_runs:
             last_trigger = recent_runs[0].trigger_time
             if last_trigger.tzinfo is None:
-                last_trigger = last_trigger.replace(tzinfo=timezone.utc)
+                last_trigger = last_trigger.replace(tzinfo=UTC)
             if last_trigger >= prev_fire:
                 return  # Already triggered for this schedule slot
 

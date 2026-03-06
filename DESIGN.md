@@ -1,6 +1,6 @@
 # Data Pipeline Orchestrator — Design Document
 
-**Status:** Decisions locked — **ready for implementation on sign-off**
+**Status:** Implemented — containerised, running via `docker compose up`
 
 This document describes the design of a simpler, abstraction-focused pipeline orchestrator (inspired by Airflow) with DAG-based jobs, optional validation steps, and a web UI. It is structured for enterprise-scale deployment with clear component boundaries, test strategy, and security posture.
 
@@ -106,6 +106,7 @@ We split the system into **six main components** plus cross-cutting concerns. Ea
 - **Tech**: **React** SPA + REST API for responsiveness and API-first use.
 - **State**: Server is source of truth; UI fetches via API; no business logic in UI beyond validation for UX.
 - **Access**: All actions go through API with auth; no direct DB access from browser.
+- **Production serving**: Vite builds a static `dist/`. An **nginx** container serves the static files and reverse-proxies `/api/* → backend:8000/*` (the `/api` prefix is stripped before forwarding, mirroring the Vite dev proxy). SPA routing is handled by an `index.html` fallback (`try_files`).
 
 **Deliverables (per phase):** UI component; E2E tests against real API (or mock); accessibility and basic security (no secrets in client, CSP).
 
@@ -172,9 +173,18 @@ We split the system into **six main components** plus cross-cutting concerns. Ea
 
 - **Orchestrator vs workers:** Engine is the “orchestrator”; it decides *what* to run and *when*. Actual execution can be in-process, subprocess, or remote workers (queue-based). Recommend: engine enqueues “run job X for run Y”; workers pull and execute; engine updates state from worker results. This gives scalability and isolation.
 - **Concurrency (job-level):** Each job has a **concurrency_enabled** flag. When **disabled**, at most one run of that job executes at a time (across all DAG runs). When **enabled**, the orchestrator limits parallel runs of that job based on **system capacity** (e.g. CPU cores, processor count, or configurable cap derived from hardware/software limits). The engine discovers or is configured with these limits at startup and enforces them when scheduling.
+- **Single-process constraint:** The engine uses an in-process `_job_locks` dict for per-job concurrency control. `uvicorn` must therefore be run with `--workers 1`. Multiple workers would not share lock state.
 - **Retries:** Configurable per-job retry (count, backoff); optional dead-letter or alert on final failure.
 - **Timeouts:** Per-job and optional per-run timeout.
 - **Idempotency:** Same run id never executed twice; idempotency in worker if needed for at-least-once.
+
+**Handler types (implemented):**
+
+| Type | Behaviour |
+|------|-----------|
+| `noop` | Succeeds immediately; useful for testing. |
+| `script` | Runs `handler_config.command` via shell subprocess (`subprocess.run`). |
+| `container` | Runs a command inside a Docker container (see §4.7). |
 
 **Deliverables:** Engine core (topological execution, state transitions); worker interface (contract); unit tests (mock store and worker); integration test with real queue and one dummy job.
 
@@ -201,6 +211,8 @@ We split the system into **six main components** plus cross-cutting concerns. Ea
 **Design choices:**
 
 - **Storage:** SQL DB (e.g. PostgreSQL) for structured data (DAGs, jobs, runs, job_run_states); optional separate store for logs (e.g. object store or log aggregator). Recommendation: start with PostgreSQL; add blob/log storage if needed.
+- **Default (containerised):** **SQLite** at absolute path `/data/orchestrator.db` written to a named Docker volume (`db_data`), so data persists across container restarts. PostgreSQL is available as an opt-in via `docker compose --profile postgres up` with `DATABASE_URL` set to the postgres service.
+- **Migrations:** Managed by **Alembic**. In the containerised setup, `alembic upgrade head` runs automatically in `backend/entrypoint.sh` before uvicorn starts.
 - **Schema:** Tables aligned to DAG, Job, Run, JobRunState (run_id, job_id, status, started_at, finished_at, error_message, logs_ref). Retention policy stored globally and/or per DAG (see below).
 - **Consistency:** Use transactions for run creation and state updates; avoid dual-writes (single writer per run state where possible).
 - **Retention:** **Configurable** with a **default of 90 days**. Stored at global level and overridable per DAG. **Modifiable at any time**; when the retention value is changed (global or per DAG), the new value **takes effect immediately** (next retention sweep applies the new N days). Retention job/sweep deletes or archives runs older than N days; implementation must use the current retention setting at execution time, not a cached value.
@@ -219,6 +231,37 @@ We split the system into **six main components** plus cross-cutting concerns. Ea
 - **Isolation:** Prefer containers (e.g. one container per job run) or at least process isolation; resource limits (CPU, memory).
 - **Environments:** Support different runtimes (e.g. Python, Node, shell, container image) via a small adapter layer so the worker can invoke the right runner.
 - **Secrets:** Not in job definition; injected via env or mounted volume from a secret store (e.g. env vars from a vault). UI never sees raw secrets.
+
+**Container handler (implemented):**
+
+The `container` handler type in the execution engine runs a command inside a short-lived Docker container using the Docker SDK (`docker>=7.0.0`).
+
+`handler_config` fields:
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `type` | yes | — | `”container”` |
+| `image` | yes | — | Docker image to run (pulled automatically if not present) |
+| `command` | yes | — | Command to execute inside the container |
+| `timeout` | no | `300` | Seconds before the wait times out |
+| `environment` | no | `{}` | Dict of env vars injected into the container |
+| `volumes` | no | `[]` | List of `”host:container[:mode]”` volume bind strings |
+
+**Behaviour:** The backend connects to the Docker daemon via the mounted socket (`/var/run/docker.sock`). The container runs on the **host** daemon (not nested inside the backend container). After the command completes, stdout+stderr are captured as logs and the container is removed. On timeout or error, the container is forcibly removed in a `finally` block.
+
+**`DOCKER_HOST` / `docker_host` config:** The daemon URL can be overridden via the `DOCKER_HOST` environment variable or `docker_host` in `Settings` (e.g. for remote Docker contexts).
+
+**Example `handler_config`:**
+```json
+{
+  “type”: “container”,
+  “image”: “python:3.11-slim”,
+  “command”: “python -c \”print('hello from container')\””,
+  “timeout”: 60,
+  “environment”: {“MY_VAR”: “value”},
+  “volumes”: [“/host/data:/data:ro”]
+}
+```
 
 **Deliverables:** Worker service(s); adapter for at least one runtime (e.g. Python script or container); tests (run dummy job, timeout, failure); security (no arbitrary code from UI without validation/sandbox).
 
@@ -255,12 +298,13 @@ We split the system into **six main components** plus cross-cutting concerns. Ea
 
 **Order of implementation (per component):**
 
-1. **Metadata & State Store** — schema and repository layer; no UI.
-2. **DAG / Job Management Service** — CRUD + cycle validation; expose via API only (no UI yet).
-3. **API Gateway / BFF** — REST + auth + validation; wire to DAG/Job and later to Engine.
-4. **Execution Engine + Workers** — core execution and one worker type; wire to API and Store.
-5. **Scheduler Service** — cron trigger; wire to Engine and Store.
-6. **Web UI** — DAG editor, run dashboard, job config, “under the hood” view.
+1. **Metadata & State Store** — schema and repository layer; no UI. ✅
+2. **DAG / Job Management Service** — CRUD + cycle validation; expose via API only (no UI yet). ✅
+3. **API Gateway / BFF** — REST + auth + validation; wire to DAG/Job and later to Engine. ✅
+4. **Execution Engine + Workers** — core execution; `noop`, `script`, and `container` handler types. ✅
+5. **Scheduler Service** — cron trigger; wire to Engine and Store. ✅
+6. **Web UI** — DAG editor, run dashboard, job config, “under the hood” view. ✅
+7. **Containerisation** — Docker images for backend and frontend; `docker compose up` startup; SQLite default with named volume; PostgreSQL opt-in profile; container handler via Docker socket. ✅
 
 For each component:
 
@@ -297,13 +341,58 @@ For each component:
 
 ## 9. Sign-off
 
-Once you are happy with this design, we can:
-
-1. Lock the decisions for §8 (or document chosen options).
-2. Proceed to implement **component by component** with tests and security scans, then deploy and test each before moving to the next.
-
-**No code will be written until you explicitly sign off on this design** (and any changes you request).
+Decisions locked and fully implemented. See §10 for how to run.
 
 ---
 
-*Document version: 1.0 — Draft for review*
+## 10. Deployment
+
+### Docker Compose (recommended)
+
+```bash
+# Default — SQLite, everything in one command
+docker compose up --build
+
+# PostgreSQL opt-in
+POSTGRES_PASSWORD=secret \
+DATABASE_URL=postgresql+psycopg2://orchestrator:secret@postgres:5432/orchestrator \
+docker compose --profile postgres up --build
+```
+
+| URL | Service |
+|-----|---------|
+| `http://localhost` | React UI (nginx) |
+| `http://localhost/api/health` | Backend health (via nginx proxy) |
+| `http://localhost:8000/health` | Backend health (direct) |
+
+### Services (`docker-compose.yml`)
+
+| Service | Image | Notes |
+|---------|-------|-------|
+| `backend` | `./backend` (python:3.11-slim) | Runs `alembic upgrade head` then uvicorn on port 8000 |
+| `frontend` | `./frontend` (node:20 → nginx:alpine) | nginx serves `dist/`, proxies `/api/` to backend |
+| `postgres` | `postgres:16-alpine` | Profile `postgres`; opt-in only |
+
+### Volumes
+
+| Volume | Purpose |
+|--------|---------|
+| `db_data` | SQLite file at `/data/orchestrator.db`; persists across restarts |
+| `pg_data` | PostgreSQL data directory (when postgres profile is active) |
+
+### Docker socket
+
+The backend container mounts `/var/run/docker.sock` from the host. This allows the `container` handler to spawn job containers directly on the host Docker daemon (no nesting). On Windows, Docker Desktop exposes the socket to WSL2 containers at the same path.
+
+### Key environment variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATABASE_URL` | `sqlite:////data/orchestrator.db` | DB connection string |
+| `API_KEY` | _(none)_ | If set, all API requests require `X-Api-Key` header |
+| `SCHEDULER_INTERVAL_SECONDS` | `60` | How often the scheduler polls for due DAGs |
+| `DOCKER_HOST` | _(socket)_ | Override Docker daemon URL for container handler |
+
+---
+
+*Document version: 2.0 — Implemented*

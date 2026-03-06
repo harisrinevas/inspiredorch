@@ -9,4 +9,6 @@ class GlobalSettingResponse(BaseModel):
 
 
 class RetentionSettingUpdate(BaseModel):
-    retention_days: int = Field(..., ge=1, description="Retention in days; applies immediately to next sweep")
+    retention_days: int = Field(
+        ..., ge=1, description="Retention in days; applies immediately to next sweep"
+    )

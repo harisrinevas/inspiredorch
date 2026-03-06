@@ -1,15 +1,14 @@
 """Unit tests for repositories (Metadata & State Store)."""
 
-import pytest
 from sqlalchemy.orm import Session
 
-from app.models import Job, DAG, DAGEdge, Run, JobRunState, GlobalSetting
+from app.models import DAG, Job
 from app.repositories import (
-    JobRepository,
     DAGRepository,
-    RunRepository,
-    JobRunStateRepository,
     GlobalSettingRepository,
+    JobRepository,
+    JobRunStateRepository,
+    RunRepository,
 )
 
 

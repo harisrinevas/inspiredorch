@@ -2,10 +2,10 @@
 
 import pytest
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.db.base import Base
-from app.models import Job, DAG, DAGEdge, Run, JobRunState, GlobalSetting  # noqa: F401
+from app.models import DAG, DAGEdge, GlobalSetting, Job, JobRunState, Run  # noqa: F401
 
 
 @pytest.fixture(scope="function")

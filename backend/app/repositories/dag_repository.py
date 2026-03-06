@@ -14,12 +14,7 @@ class DAGRepository(BaseRepository[DAG]):
         return self.db.query(DAG).order_by(DAG.name).all()
 
     def get_with_edges(self, id: str) -> DAG | None:
-        return (
-            self.db.query(DAG)
-            .options(joinedload(DAG.edges))
-            .filter(DAG.id == id)
-            .first()
-        )
+        return self.db.query(DAG).options(joinedload(DAG.edges)).filter(DAG.id == id).first()
 
     def get_edges(self, dag_id: str) -> list[tuple[str, str]]:
         """Return list of (from_job_id, to_job_id) for the DAG."""

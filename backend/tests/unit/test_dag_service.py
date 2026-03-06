@@ -3,8 +3,8 @@
 import pytest
 from sqlalchemy.orm import Session
 
-from app.models import DAG, Job
-from app.repositories import DAGRepository, JobRepository
+from app.models import Job
+from app.repositories import JobRepository
 from app.schemas.dag import DAGCreate, DAGUpdate, EdgeInput
 from app.services.dag_service import (
     DAGError,
@@ -13,8 +13,8 @@ from app.services.dag_service import (
     topological_waves,
 )
 
-
 # ── Cycle detection ──────────────────────────────────────────────────────────
+
 
 def test_no_cycle_linear():
     assert not _has_cycle({"a", "b", "c"}, [("a", "b"), ("b", "c")])
@@ -38,13 +38,16 @@ def test_cycle_three_nodes():
 
 # ── Topological waves ─────────────────────────────────────────────────────────
 
+
 def test_topo_linear():
     waves = topological_waves(["a", "b", "c"], [("a", "b"), ("b", "c")])
     assert waves == [["a"], ["b"], ["c"]]
 
 
 def test_topo_diamond():
-    waves = topological_waves(["a", "b", "c", "d"], [("a", "b"), ("a", "c"), ("b", "d"), ("c", "d")])
+    waves = topological_waves(
+        ["a", "b", "c", "d"], [("a", "b"), ("a", "c"), ("b", "d"), ("c", "d")]
+    )
     assert waves[0] == ["a"]
     assert set(waves[1]) == {"b", "c"}
     assert waves[2] == ["d"]
@@ -57,6 +60,7 @@ def test_topo_no_edges():
 
 
 # ── DAGService CRUD ───────────────────────────────────────────────────────────
+
 
 def _make_job(db: Session, name: str) -> Job:
     repo = JobRepository(db)
@@ -71,11 +75,13 @@ def test_dag_service_create(db_session: Session):
     j2 = _make_job(db_session, "job-2")
 
     svc = DAGService(db_session)
-    dag = svc.create(DAGCreate(
-        name="pipeline",
-        job_ids=[j1.id, j2.id],
-        edges=[EdgeInput(from_job_id=j1.id, to_job_id=j2.id)],
-    ))
+    dag = svc.create(
+        DAGCreate(
+            name="pipeline",
+            job_ids=[j1.id, j2.id],
+            edges=[EdgeInput(from_job_id=j1.id, to_job_id=j2.id)],
+        )
+    )
 
     assert dag.id is not None
     assert dag.name == "pipeline"
@@ -88,24 +94,28 @@ def test_dag_service_rejects_cycle(db_session: Session):
 
     svc = DAGService(db_session)
     with pytest.raises(DAGError, match="cycle"):
-        svc.create(DAGCreate(
-            name="cyclic",
-            job_ids=[j1.id, j2.id],
-            edges=[
-                EdgeInput(from_job_id=j1.id, to_job_id=j2.id),
-                EdgeInput(from_job_id=j2.id, to_job_id=j1.id),
-            ],
-        ))
+        svc.create(
+            DAGCreate(
+                name="cyclic",
+                job_ids=[j1.id, j2.id],
+                edges=[
+                    EdgeInput(from_job_id=j1.id, to_job_id=j2.id),
+                    EdgeInput(from_job_id=j2.id, to_job_id=j1.id),
+                ],
+            )
+        )
 
 
 def test_dag_service_rejects_unknown_job(db_session: Session):
     svc = DAGService(db_session)
     with pytest.raises(DAGError, match="not found"):
-        svc.create(DAGCreate(
-            name="bad",
-            job_ids=["nonexistent-id"],
-            edges=[],
-        ))
+        svc.create(
+            DAGCreate(
+                name="bad",
+                job_ids=["nonexistent-id"],
+                edges=[],
+            )
+        )
 
 
 def test_dag_service_update_pause(db_session: Session):
@@ -134,14 +144,16 @@ def test_dag_execution_waves(db_session: Session):
     j3 = _make_job(db_session, "load")
 
     svc = DAGService(db_session)
-    dag = svc.create(DAGCreate(
-        name="etl",
-        job_ids=[j1.id, j2.id, j3.id],
-        edges=[
-            EdgeInput(from_job_id=j1.id, to_job_id=j2.id),
-            EdgeInput(from_job_id=j2.id, to_job_id=j3.id),
-        ],
-    ))
+    dag = svc.create(
+        DAGCreate(
+            name="etl",
+            job_ids=[j1.id, j2.id, j3.id],
+            edges=[
+                EdgeInput(from_job_id=j1.id, to_job_id=j2.id),
+                EdgeInput(from_job_id=j2.id, to_job_id=j3.id),
+            ],
+        )
+    )
 
     waves = svc.get_execution_waves(dag)
     assert len(waves) == 3

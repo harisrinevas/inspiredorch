@@ -19,6 +19,7 @@ async def lifespan(app: FastAPI):
     init_db()
 
     from app.services.scheduler_service import SchedulerService
+
     scheduler = SchedulerService(interval_seconds=settings.scheduler_interval_seconds)
     scheduler.start()
     app.state.scheduler = scheduler
@@ -46,8 +47,8 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    from app.api.jobs import router as jobs_router
     from app.api.dags import router as dags_router
+    from app.api.jobs import router as jobs_router
     from app.api.runs import router as runs_router
     from app.api.settings import router as settings_router
 

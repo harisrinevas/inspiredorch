@@ -4,7 +4,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.run import Run, JobRunState
+from app.models.run import Run
 from app.repositories.base import BaseRepository
 
 
@@ -14,10 +14,7 @@ class RunRepository(BaseRepository[Run]):
 
     def get_with_job_states(self, id: str) -> Run | None:
         return (
-            self.db.query(Run)
-            .options(joinedload(Run.job_run_states))
-            .filter(Run.id == id)
-            .first()
+            self.db.query(Run).options(joinedload(Run.job_run_states)).filter(Run.id == id).first()
         )
 
     def list_by_dag(self, dag_id: str, limit: int = 100) -> list[Run]:

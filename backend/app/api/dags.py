@@ -20,7 +20,12 @@ def list_dags(db: Session = Depends(get_db)):
     return [dag_to_dict(d) for d in svc.list_all()]
 
 
-@router.post("", response_model=DAGResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_api_key)])
+@router.post(
+    "",
+    response_model=DAGResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_api_key)],
+)
 def create_dag(data: DAGCreate, db: Session = Depends(get_db)):
     svc = DAGService(db)
     try:
@@ -52,7 +57,11 @@ def update_dag(dag_id: str, data: DAGUpdate, db: Session = Depends(get_db)):
     return dag_to_dict(dag)
 
 
-@router.delete("/{dag_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_api_key)])
+@router.delete(
+    "/{dag_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_api_key)],
+)
 def delete_dag(dag_id: str, db: Session = Depends(get_db)):
     svc = DAGService(db)
     dag = svc.get(dag_id)
@@ -75,7 +84,12 @@ def validate_dag(dag_id: str, db: Session = Depends(get_db)):
         return {"valid": False, "error": str(exc)}
 
 
-@router.post("/{dag_id}/runs", response_model=RunResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_api_key)])
+@router.post(
+    "/{dag_id}/runs",
+    response_model=RunResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_api_key)],
+)
 def trigger_run(dag_id: str, body: TriggerRunRequest = None, db: Session = Depends(get_db)):
     """Trigger a new run for this DAG."""
     dag_svc = DAGService(db)
@@ -103,4 +117,5 @@ def list_dag_runs(dag_id: str, limit: int = 50, db: Session = Depends(get_db)):
     run_svc = RunService(db)
     runs = run_svc.list_by_dag(dag_id, limit=limit)
     from app.services.run_service import run_list_item_to_dict
+
     return [run_list_item_to_dict(r) for r in runs]
