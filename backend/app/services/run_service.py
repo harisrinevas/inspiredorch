@@ -59,6 +59,7 @@ def job_state_to_dict(s: JobRunState) -> dict:
         "started_at": s.started_at,
         "finished_at": s.finished_at,
         "error_message": s.error_message,
+        "logs": s.logs,
         "logs_ref": s.logs_ref,
     }
 

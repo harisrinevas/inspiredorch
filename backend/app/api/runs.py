@@ -59,6 +59,7 @@ def get_job_run_logs(run_id: str, job_id: str, db: Session = Depends(get_db)):
     return {
         "run_id": run_id,
         "job_id": job_id,
+        "logs": state.logs,
         "logs_ref": state.logs_ref,
         "error_message": state.error_message,
     }

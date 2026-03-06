@@ -94,6 +94,7 @@ class JobRunState(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    logs: Mapped[str | None] = mapped_column(Text, nullable=True)  # captured stdout/stderr
     logs_ref: Mapped[str | None] = mapped_column(String(512), nullable=True)  # path or object key
 
     run: Mapped["Run"] = relationship("Run", back_populates="job_run_states")

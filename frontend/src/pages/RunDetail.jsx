@@ -83,6 +83,7 @@ export default function RunDetail() {
                     <th>Status</th>
                     <th>Started</th>
                     <th>Finished</th>
+                    <th>Logs</th>
                     <th>Error</th>
                   </tr>
                 </thead>
@@ -96,6 +97,14 @@ export default function RunDetail() {
                       </td>
                       <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>
                         {s.finished_at ? new Date(s.finished_at).toLocaleTimeString() : '—'}
+                      </td>
+                      <td style={{ fontSize: 12, maxWidth: 300 }}>
+                        {s.logs ? (
+                          <details>
+                            <summary style={{ cursor: 'pointer' }}>View logs</summary>
+                            <pre style={{ whiteSpace: 'pre-wrap', marginTop: 4, color: 'var(--text-muted)' }}>{s.logs}</pre>
+                          </details>
+                        ) : '—'}
                       </td>
                       <td style={{ color: 'var(--danger)', fontSize: 12, maxWidth: 300 }}>
                         {s.error_message ? (

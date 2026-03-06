@@ -20,6 +20,7 @@ class JobRunStateResponse(BaseModel):
     started_at: Optional[datetime]
     finished_at: Optional[datetime]
     error_message: Optional[str]
+    logs: Optional[str]
     logs_ref: Optional[str]
 
 
