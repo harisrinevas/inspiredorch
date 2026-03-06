@@ -1,15 +1,14 @@
 """Integration tests: full Metadata & State Store workflow."""
 
-import pytest
 from sqlalchemy.orm import Session
 
-from app.models import Job, DAG, Run, JobRunState
+from app.models import DAG, Job
 from app.repositories import (
-    JobRepository,
     DAGRepository,
-    RunRepository,
-    JobRunStateRepository,
     GlobalSettingRepository,
+    JobRepository,
+    JobRunStateRepository,
+    RunRepository,
 )
 
 

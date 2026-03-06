@@ -5,9 +5,7 @@ from datetime import datetime
 from sqlalchemy import DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base
-from app.db.base import TimestampMixin, generate_uuid
-
+from app.db.base import Base, TimestampMixin, generate_uuid
 
 # Run status
 RUN_STATUS_PENDING = "pending"
@@ -48,7 +46,9 @@ class Run(Base, TimestampMixin):
         server_default=func.now(),
         nullable=False,
     )
-    triggered_by: Mapped[str | None] = mapped_column(String(255), nullable=True)  # user or "scheduler"
+    triggered_by: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )  # user or "scheduler"
     status: Mapped[str] = mapped_column(
         String(32),
         nullable=False,

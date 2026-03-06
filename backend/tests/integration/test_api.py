@@ -14,6 +14,7 @@ from app.main import app
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture(scope="module")
 def client():
     # StaticPool ensures all sessions share the same in-memory SQLite connection
@@ -42,6 +43,7 @@ def client():
 
 # ── Health ─────────────────────────────────────────────────────────────────────
 
+
 def test_health(client):
     r = client.get("/health")
     assert r.status_code == 200
@@ -55,11 +57,15 @@ def test_ready(client):
 
 # ── Jobs ───────────────────────────────────────────────────────────────────────
 
+
 def test_create_job(client):
-    r = client.post("/jobs", json={
-        "name": "my-job",
-        "handler_config": {"type": "noop"},
-    })
+    r = client.post(
+        "/jobs",
+        json={
+            "name": "my-job",
+            "handler_config": {"type": "noop"},
+        },
+    )
     assert r.status_code == 201
     data = r.json()
     assert data["name"] == "my-job"
@@ -110,6 +116,7 @@ def test_delete_job(client):
 
 # ── DAGs ───────────────────────────────────────────────────────────────────────
 
+
 def _create_job(client, name="j"):
     r = client.post("/jobs", json={"name": name, "handler_config": {"type": "noop"}})
     return r.json()["id"]
@@ -119,11 +126,14 @@ def test_create_dag(client):
     j1 = _create_job(client, "dag-j1")
     j2 = _create_job(client, "dag-j2")
 
-    r = client.post("/dags", json={
-        "name": "my-pipeline",
-        "job_ids": [j1, j2],
-        "edges": [{"from_job_id": j1, "to_job_id": j2}],
-    })
+    r = client.post(
+        "/dags",
+        json={
+            "name": "my-pipeline",
+            "job_ids": [j1, j2],
+            "edges": [{"from_job_id": j1, "to_job_id": j2}],
+        },
+    )
     assert r.status_code == 201
     data = r.json()
     assert data["name"] == "my-pipeline"
@@ -134,25 +144,31 @@ def test_create_dag_cycle_rejected(client):
     j1 = _create_job(client, "cycle-j1")
     j2 = _create_job(client, "cycle-j2")
 
-    r = client.post("/dags", json={
-        "name": "bad",
-        "job_ids": [j1, j2],
-        "edges": [
-            {"from_job_id": j1, "to_job_id": j2},
-            {"from_job_id": j2, "to_job_id": j1},
-        ],
-    })
+    r = client.post(
+        "/dags",
+        json={
+            "name": "bad",
+            "job_ids": [j1, j2],
+            "edges": [
+                {"from_job_id": j1, "to_job_id": j2},
+                {"from_job_id": j2, "to_job_id": j1},
+            ],
+        },
+    )
     assert r.status_code == 422
 
 
 def test_validate_dag(client):
     j1 = _create_job(client, "val-j1")
     j2 = _create_job(client, "val-j2")
-    r = client.post("/dags", json={
-        "name": "valid-dag",
-        "job_ids": [j1, j2],
-        "edges": [{"from_job_id": j1, "to_job_id": j2}],
-    })
+    r = client.post(
+        "/dags",
+        json={
+            "name": "valid-dag",
+            "job_ids": [j1, j2],
+            "edges": [{"from_job_id": j1, "to_job_id": j2}],
+        },
+    )
     dag_id = r.json()["id"]
 
     r = client.post(f"/dags/{dag_id}/validate")
@@ -193,6 +209,7 @@ def test_cancel_terminal_run_rejected(client):
 
     # Wait briefly for the noop job to complete
     import time
+
     time.sleep(0.5)
 
     r = client.get(f"/runs/{run_id}")
@@ -203,6 +220,7 @@ def test_cancel_terminal_run_rejected(client):
 
 
 # ── Settings ───────────────────────────────────────────────────────────────────
+
 
 def test_get_retention(client):
     r = client.get("/settings/retention")

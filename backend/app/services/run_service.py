@@ -1,29 +1,19 @@
 """Run creation and state management service."""
 
-from typing import Optional
-
 from sqlalchemy.orm import Session
 
 from app.models.run import (
-    Run,
-    JobRunState,
+    JOB_RUN_STATUS_CANCELLED,
+    JOB_RUN_STATUS_PENDING,
+    JOB_RUN_STATUS_RUNNING,
+    RUN_STATUS_CANCELLED,
     RUN_STATUS_PENDING,
     RUN_STATUS_RUNNING,
-    RUN_STATUS_SUCCESS,
-    RUN_STATUS_FAILED,
-    RUN_STATUS_CANCELLED,
-    JOB_RUN_STATUS_PENDING,
-    JOB_RUN_STATUS_SUCCESS,
-    JOB_RUN_STATUS_FAILED,
-    JOB_RUN_STATUS_SKIPPED,
-    JOB_RUN_STATUS_CANCELLED,
-    JOB_RUN_STATUS_RUNNING,
-    JOB_RUN_STATUS_INPUT_VALIDATION,
-    JOB_RUN_STATUS_OUTPUT_VALIDATION,
+    JobRunState,
+    Run,
 )
-from app.repositories.run_repository import RunRepository
 from app.repositories.job_run_state_repository import JobRunStateRepository
-from app.schemas.run import JobRunStateResponse, RunResponse, RunListItem
+from app.repositories.run_repository import RunRepository
 
 
 def run_to_dict(run: Run) -> dict:
@@ -70,14 +60,14 @@ class RunService:
         self.state_repo = JobRunStateRepository(db)
         self.db = db
 
-    def create_run(self, dag_id: str, job_ids: list[str], triggered_by: Optional[str] = None) -> Run:
+    def create_run(self, dag_id: str, job_ids: list[str], triggered_by: str | None = None) -> Run:
         run = self.run_repo.create_run(dag_id, triggered_by=triggered_by)
         for job_id in job_ids:
             self.state_repo.create(run.id, job_id)
         self.db.commit()
         return self.run_repo.get_with_job_states(run.id)
 
-    def get(self, run_id: str) -> Optional[Run]:
+    def get(self, run_id: str) -> Run | None:
         return self.run_repo.get_with_job_states(run_id)
 
     def list_by_dag(self, dag_id: str, limit: int = 100) -> list[Run]:
@@ -97,7 +87,7 @@ class RunService:
         run_id: str,
         job_id: str,
         status: str,
-        error_message: Optional[str] = None,
+        error_message: str | None = None,
         started_at=None,
         finished_at=None,
     ) -> None:

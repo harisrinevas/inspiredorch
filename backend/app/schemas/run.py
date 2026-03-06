@@ -1,13 +1,12 @@
 """Run request/response schemas."""
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
 
 class TriggerRunRequest(BaseModel):
-    triggered_by: Optional[str] = "api"
+    triggered_by: str | None = "api"
 
 
 class JobRunStateResponse(BaseModel):
@@ -17,11 +16,11 @@ class JobRunStateResponse(BaseModel):
     run_id: str
     job_id: str
     status: str
-    started_at: Optional[datetime]
-    finished_at: Optional[datetime]
-    error_message: Optional[str]
-    logs: Optional[str]
-    logs_ref: Optional[str]
+    started_at: datetime | None
+    finished_at: datetime | None
+    error_message: str | None
+    logs: str | None
+    logs_ref: str | None
 
 
 class RunResponse(BaseModel):
@@ -30,7 +29,7 @@ class RunResponse(BaseModel):
     id: str
     dag_id: str
     trigger_time: datetime
-    triggered_by: Optional[str]
+    triggered_by: str | None
     status: str
     created_at: datetime
     job_run_states: list[JobRunStateResponse] = []
@@ -42,6 +41,6 @@ class RunListItem(BaseModel):
     id: str
     dag_id: str
     trigger_time: datetime
-    triggered_by: Optional[str]
+    triggered_by: str | None
     status: str
     created_at: datetime

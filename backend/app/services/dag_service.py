@@ -1,11 +1,10 @@
 """DAG CRUD service with cycle detection and topological sort."""
 
 from collections import defaultdict, deque
-from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.models.dag import DAG, DAGEdge
+from app.models.dag import DAG
 from app.repositories.dag_repository import DAGRepository
 from app.repositories.job_repository import JobRepository
 from app.schemas.dag import DAGCreate, DAGUpdate, EdgeResponse
@@ -125,7 +124,7 @@ class DAGService:
         self.db.refresh(dag)
         return dag
 
-    def get(self, id: str) -> Optional[DAG]:
+    def get(self, id: str) -> DAG | None:
         return self.dag_repo.get_with_edges(id)
 
     def list_all(self) -> list[DAG]:
@@ -150,10 +149,16 @@ class DAGService:
         if data.job_ids is not None or data.edges is not None:
             # Get current state if partial update
             existing_edges = [(e.from_job_id, e.to_job_id) for e in (dag.edges or [])]
-            job_ids = data.job_ids if data.job_ids is not None else list(
-                {j for edge in existing_edges for j in edge}
+            job_ids = (
+                data.job_ids
+                if data.job_ids is not None
+                else list({j for edge in existing_edges for j in edge})
             )
-            edge_tuples = [(e.from_job_id, e.to_job_id) for e in data.edges] if data.edges is not None else existing_edges
+            edge_tuples = (
+                [(e.from_job_id, e.to_job_id) for e in data.edges]
+                if data.edges is not None
+                else existing_edges
+            )
 
             for jid in job_ids:
                 if not self.job_repo.exists(jid):

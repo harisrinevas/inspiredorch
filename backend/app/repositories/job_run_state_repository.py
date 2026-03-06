@@ -21,11 +21,7 @@ class JobRunStateRepository(BaseRepository[JobRunState]):
         )
 
     def list_by_run(self, run_id: str) -> list[JobRunState]:
-        return (
-            self.db.query(JobRunState)
-            .filter(JobRunState.run_id == run_id)
-            .all()
-        )
+        return self.db.query(JobRunState).filter(JobRunState.run_id == run_id).all()
 
     def create(self, run_id: str, job_id: str) -> JobRunState:
         state = JobRunState(run_id=run_id, job_id=job_id)

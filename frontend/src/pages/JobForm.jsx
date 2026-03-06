@@ -37,7 +37,7 @@ export default function JobForm() {
         concurrency_enabled: j.concurrency_enabled,
       })
     }).catch(e => setError(e.message))
-  }, [id])
+  }, [id, isEdit])
 
   const parseJson = (val, fieldName) => {
     if (!val.trim()) return null
@@ -94,7 +94,7 @@ export default function JobForm() {
         <div className="card" style={{ marginBottom: 16 }}>
           <h3 style={{ marginBottom: 4, fontSize: 15 }}>Handler Config</h3>
           <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 12 }}>
-            JSON object. <code style={{ color: 'var(--accent)' }}>{"{"}"type":"noop"{"}"}</code> or <code style={{ color: 'var(--accent)' }}>{"{"}"type":"script","command":"echo hello","timeout":60{"}"}</code>
+            JSON object. <code style={{ color: 'var(--accent)' }}>{'{"type":"noop"}'}</code> or <code style={{ color: 'var(--accent)' }}>{'{"type":"script","command":"echo hello","timeout":60}'}</code>
           </p>
           <textarea
             required

@@ -1,6 +1,6 @@
 """Global settings (e.g. retention default)."""
 
-from sqlalchemy import Integer, String
+from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base

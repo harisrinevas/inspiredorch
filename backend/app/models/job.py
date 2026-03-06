@@ -1,10 +1,9 @@
 """Job model - global job library."""
 
 from sqlalchemy import Boolean, String, Text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base
-from app.db.base import TimestampMixin, generate_uuid
+from app.db.base import Base, TimestampMixin, generate_uuid
 
 
 class Job(Base, TimestampMixin):
@@ -24,7 +23,7 @@ class Job(Base, TimestampMixin):
     handler_config: Mapped[str] = mapped_column(Text, nullable=False)  # JSON string
 
     # Optional input/output metadata (paths, schemas, key-value)
-    input_spec: Mapped[str | None] = mapped_column(Text, nullable=True)   # JSON
+    input_spec: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
     output_spec: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
 
     # Validation toggles and optional config (script path, schema URI)

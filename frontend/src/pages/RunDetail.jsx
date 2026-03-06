@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { api } from '../api'
 import StatusBadge from '../components/StatusBadge'
 
 export default function RunDetail() {
   const { id } = useParams()
-  const navigate = useNavigate()
   const [run, setRun] = useState(null)
   const [error, setError] = useState(null)
   const [cancelling, setCancelling] = useState(false)
@@ -20,6 +19,7 @@ export default function RunDetail() {
       load()
     }, 3000)
     return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, run?.status])
 
   const handleCancel = async () => {

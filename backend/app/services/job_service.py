@@ -1,7 +1,6 @@
 """Job CRUD service."""
 
 import json
-from typing import Optional
 
 from sqlalchemy.orm import Session
 
@@ -10,7 +9,7 @@ from app.repositories.job_repository import JobRepository
 from app.schemas.job import JobCreate, JobUpdate
 
 
-def _parse(val: Optional[str]) -> Optional[dict]:
+def _parse(val: str | None) -> dict | None:
     if val is None:
         return None
     try:
@@ -50,7 +49,9 @@ class JobService:
             output_spec=json.dumps(data.output_spec) if data.output_spec is not None else None,
             input_validation_enabled=data.input_validation_enabled,
             output_validation_enabled=data.output_validation_enabled,
-            validator_config=json.dumps(data.validator_config) if data.validator_config is not None else None,
+            validator_config=json.dumps(data.validator_config)
+            if data.validator_config is not None
+            else None,
             concurrency_enabled=data.concurrency_enabled,
         )
         self.repo.add(job)
@@ -58,7 +59,7 @@ class JobService:
         self.db.refresh(job)
         return job
 
-    def get(self, id: str) -> Optional[Job]:
+    def get(self, id: str) -> Job | None:
         return self.repo.get(id)
 
     def list_all(self) -> list[Job]:

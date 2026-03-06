@@ -37,7 +37,7 @@ export default function DAGForm() {
       edgeList.forEach(e => { ids.add(e.from_job_id); ids.add(e.to_job_id) })
       setSelectedJobIds([...ids])
     }).catch(e => setError(e.message))
-  }, [id])
+  }, [id, isEdit])
 
   const toggleJob = (jobId) => {
     setSelectedJobIds(prev =>

@@ -1,33 +1,35 @@
 """Job request/response schemas."""
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class JobCreate(BaseModel):
     name: str = Field(..., max_length=255)
-    description: Optional[str] = None
-    handler_config: dict[str, Any] = Field(..., description='e.g. {"type": "script", "command": "echo hi"}')
-    input_spec: Optional[dict[str, Any]] = None
-    output_spec: Optional[dict[str, Any]] = None
+    description: str | None = None
+    handler_config: dict[str, Any] = Field(
+        ..., description='e.g. {"type": "script", "command": "echo hi"}'
+    )
+    input_spec: dict[str, Any] | None = None
+    output_spec: dict[str, Any] | None = None
     input_validation_enabled: bool = False
     output_validation_enabled: bool = False
-    validator_config: Optional[dict[str, Any]] = None
+    validator_config: dict[str, Any] | None = None
     concurrency_enabled: bool = False
 
 
 class JobUpdate(BaseModel):
-    name: Optional[str] = Field(None, max_length=255)
-    description: Optional[str] = None
-    handler_config: Optional[dict[str, Any]] = None
-    input_spec: Optional[dict[str, Any]] = None
-    output_spec: Optional[dict[str, Any]] = None
-    input_validation_enabled: Optional[bool] = None
-    output_validation_enabled: Optional[bool] = None
-    validator_config: Optional[dict[str, Any]] = None
-    concurrency_enabled: Optional[bool] = None
+    name: str | None = Field(None, max_length=255)
+    description: str | None = None
+    handler_config: dict[str, Any] | None = None
+    input_spec: dict[str, Any] | None = None
+    output_spec: dict[str, Any] | None = None
+    input_validation_enabled: bool | None = None
+    output_validation_enabled: bool | None = None
+    validator_config: dict[str, Any] | None = None
+    concurrency_enabled: bool | None = None
 
 
 class JobResponse(BaseModel):
@@ -35,13 +37,13 @@ class JobResponse(BaseModel):
 
     id: str
     name: str
-    description: Optional[str]
+    description: str | None
     handler_config: dict[str, Any]
-    input_spec: Optional[dict[str, Any]]
-    output_spec: Optional[dict[str, Any]]
+    input_spec: dict[str, Any] | None
+    output_spec: dict[str, Any] | None
     input_validation_enabled: bool
     output_validation_enabled: bool
-    validator_config: Optional[dict[str, Any]]
+    validator_config: dict[str, Any] | None
     concurrency_enabled: bool
     created_at: datetime
     updated_at: datetime

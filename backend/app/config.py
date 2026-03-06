@@ -1,7 +1,6 @@
 """Application configuration from environment."""
 
 from functools import lru_cache
-from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -28,10 +27,14 @@ class Settings(BaseSettings):
     retention_days_default: int = 90
 
     # Auth: if set, all API endpoints require X-Api-Key header
-    api_key: Optional[str] = None
+    api_key: str | None = None
 
     # Scheduler poll interval in seconds
     scheduler_interval_seconds: int = 60
+
+    # Container execution: override Docker daemon URL.
+    # Default: uses DOCKER_HOST env or /var/run/docker.sock
+    docker_host: str | None = None
 
 
 @lru_cache

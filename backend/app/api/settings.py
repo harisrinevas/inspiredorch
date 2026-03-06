@@ -12,7 +12,11 @@ from app.schemas.settings import GlobalSettingResponse, RetentionSettingUpdate
 router = APIRouter(prefix="/settings", tags=["settings"])
 
 
-@router.get("/retention", response_model=GlobalSettingResponse, dependencies=[Depends(require_api_key)])
+@router.get(
+    "/retention",
+    response_model=GlobalSettingResponse,
+    dependencies=[Depends(require_api_key)],
+)
 def get_retention(db: Session = Depends(get_db)):
     """Get effective retention setting (DB value or config default)."""
     repo = GlobalSettingRepository(db)
@@ -21,7 +25,11 @@ def get_retention(db: Session = Depends(get_db)):
     return {"key": "retention_days", "value": str(effective)}
 
 
-@router.put("/retention", response_model=GlobalSettingResponse, dependencies=[Depends(require_api_key)])
+@router.put(
+    "/retention",
+    response_model=GlobalSettingResponse,
+    dependencies=[Depends(require_api_key)],
+)
 def update_retention(data: RetentionSettingUpdate, db: Session = Depends(get_db)):
     """Update retention setting. Takes effect immediately on next retention sweep."""
     repo = GlobalSettingRepository(db)

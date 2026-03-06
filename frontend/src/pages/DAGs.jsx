@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
-import StatusBadge from '../components/StatusBadge'
 
 export default function DAGs() {
   const [dags, setDags] = useState([])

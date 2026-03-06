@@ -1,16 +1,12 @@
 """FastAPI dependencies: auth, DB session."""
 
-from typing import Optional
-
 from fastapi import Depends, Header, HTTPException, status
-from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
-from app.db.session import get_db
 
 
 def require_api_key(
-    x_api_key: Optional[str] = Header(None, alias="X-Api-Key"),
+    x_api_key: str | None = Header(None, alias="X-Api-Key"),
     settings: Settings = Depends(get_settings),
 ) -> None:
     """Require API key if one is configured. No-op in dev mode (api_key=None)."""

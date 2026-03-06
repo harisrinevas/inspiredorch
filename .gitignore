@@ -88,6 +88,10 @@ tmp/
 temp/
 .cache/
 
+# ---- Project-specific exclusions ----
+issue-log.md
+backend/.claude/
+
 # ---- Optional: uncomment if you use ----
 # *.bak
 # *.orig

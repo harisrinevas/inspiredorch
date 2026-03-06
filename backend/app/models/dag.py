@@ -3,8 +3,7 @@
 from sqlalchemy import Boolean, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base
-from app.db.base import TimestampMixin, generate_uuid
+from app.db.base import Base, TimestampMixin, generate_uuid
 
 
 class DAG(Base, TimestampMixin):
